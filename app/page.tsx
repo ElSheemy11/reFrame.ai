@@ -1,3 +1,4 @@
+import { FaqSection } from "@/components/FaqSection";
 import { Footer } from "@/components/Footer";
 import { GalleryShowcase } from "@/components/GalleryShowcase";
 import { HomeHero } from "@/components/HomeHero";
@@ -13,6 +14,7 @@ export default function Home() {
         <GalleryShowcase />
         <HowItWorksSection />
         <Pricing />
+        <FaqSection />
         <Testimonials />
       </main>
 
