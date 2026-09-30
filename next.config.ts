@@ -2,7 +2,16 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    // Testimonial avatars (lib/constants.ts) are served straight from Unsplash.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
 };
 
 export default withSentryConfig(nextConfig, {
