@@ -2,6 +2,7 @@ import { Footer } from "@/components/Footer";
 import { GalleryShowcase } from "@/components/GalleryShowcase";
 import { HomeHero } from "@/components/HomeHero";
 import { HowItWorksSection } from "@/components/HowItWorks";
+import Pricing from "@/components/Pricing";
 import { Testimonials } from "@/components/Testimonials";
 
 export default function Home() {
@@ -11,6 +12,7 @@ export default function Home() {
         <HomeHero />
         <GalleryShowcase />
         <HowItWorksSection />
+        <Pricing />
         <Testimonials />
       </main>
 
