@@ -226,7 +226,7 @@ export function SiteHeader() {
 
           {/* Auth buttons: desktop only (mobile versions live in the menu) */}
           <Show when="signed-out">
-            <SignInButton mode="modal">
+            <SignInButton mode="modal" fallbackRedirectUrl={"/studio"}>
               <Button
                 className={cn(
                   "text-foreground hidden rounded-xl px-4 py-1.5 text-sm font-medium md:inline-flex",

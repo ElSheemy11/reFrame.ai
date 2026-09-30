@@ -455,7 +455,7 @@ export function CinematicFooter({
                 by
               </span>
               <span className="ml-1 text-xs font-black tracking-normal text-foreground md:text-sm">
-                {brand}
+                ElSheemy
               </span>
             </div>
 

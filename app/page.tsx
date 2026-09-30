@@ -4,6 +4,7 @@ import { GalleryShowcase } from "@/components/GalleryShowcase";
 import { HomeHero } from "@/components/HomeHero";
 import { HowItWorksSection } from "@/components/HowItWorks";
 import Pricing from "@/components/Pricing";
+import { PrivacyTrustStrip } from "@/components/PrivacyTrustStrip";
 import { Testimonials } from "@/components/Testimonials";
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
         <GalleryShowcase />
         <HowItWorksSection />
         <Pricing />
+        <PrivacyTrustStrip />
         <FaqSection />
         <Testimonials />
       </main>

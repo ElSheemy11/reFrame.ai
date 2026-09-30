@@ -46,7 +46,7 @@ const FAQ_ITEMS: FaqItem[] = [
     // CONFIRM: the render engine's own retention terms, then point this at /privacy.
     answer:
       "Your photo stays in your browser while you set up a render. It is only sent to the rendering engine when you press Render, where it is used to produce that result. We do not keep your uploads as a browsable library, and we do not train our own models on them.",
-    action: { label: "Ask us about your data", href: "mailto:hello@reframe.ai" },
+    action: { label: "Ask us about your data", href: "/privacy" },
   },
   {
     question: "Is the free plan really free?",
@@ -65,10 +65,10 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     question: "Can I use the results commercially?",
-    // CONFIRM: insert your licence terms — this answer deliberately grants nothing.
+    // CONFIRM: insert your license terms — this answer deliberately grants nothing.
     answer:
       "You keep the rights to the original photo you upload, and every render is generated from it. If you need written terms before using results in client work, prints or campaigns, ask us and we will send them over.",
-    action: { label: "Ask about licensing", href: "mailto:hello@reframe.ai" },
+    action: { label: "Ask about licensing", href: "/privacy" },
   },
   {
     question: "Can I cancel or change my plan at any time?",
