@@ -1,101 +1,103 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { ACCEPTED_SOURCE_IMAGE_MIME_TYPES } from "@/lib/constants";
 import {
-  MAX_SOURCE_IMAGE_LABEL,
   findStudioPreset,
   rejectSourceImage,
+  MAX_SOURCE_IMAGE_LABEL,
+  type StudioGeneration,
   type StudioGenerateError,
   type StudioGenerateErrorCode,
-  type StudioGeneration,
 } from "@/lib/studio";
-import { getRenderEngineConfig, requestStyledImage } from "@/lib/studio-engine";
+import { EngineFailedError, EngineNotConnectedError, renderPreset } from "@/lib/gemini";
 
-// Multipart uploads and the upstream `fetch` rely on Node's FormData/File, so
-// this route is pinned to the Node.js runtime.
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
-/** "JPEG, PNG, WEBP" — for error copy that mirrors the accepted MIME types. */
-const ACCEPTED_SOURCE_IMAGE_LABEL = Array.from(ACCEPTED_SOURCE_IMAGE_MIME_TYPES)
-  .map((mimeType) => mimeType.slice("image/".length).toUpperCase())
-  .join(", ");
-
-function failure(code: StudioGenerateErrorCode, status: number, message: string) {
-  return NextResponse.json<StudioGenerateError>({ error: { code, message } }, { status });
+function fail(code: StudioGenerateErrorCode, message: string, status: number) {
+  const body: StudioGenerateError = { error: { code, message } };
+  return NextResponse.json(body, { status });
 }
 
-/**
- * Renders a restyle for `image` using `preset`.
- *
- * Status codes:
- * - `401` no Clerk session
- * - `400` malformed multipart body, unusable source image or unknown preset
- * - `501` no engine configured (`RENDER_ENGINE_URL` / `RENDER_ENGINE_API_KEY`)
- * - `502` the engine was reached but failed or answered something unusable
- * - `200` a `StudioGeneration`
- */
-export async function POST(request: Request) {
-  // `proxy.ts` keeps signed-out browsers out of /studio, but an API route can be
-  // called directly, so it enforces its own session check.
+// Auth: the project's real auth is Clerk. `proxy.ts` keeps signed-out browsers
+// out of /studio, but an API route can be called directly, so this enforces its
+// own session check and fails closed when there is no user.
+async function getUserId(): Promise<string | null> {
   const { userId } = await auth();
-  if (!userId) {
-    return failure("unauthenticated", 401, "Sign in to render a restyle.");
+  return userId ?? null;
+}
+
+// In-memory limiter: per server instance only.
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 5;
+const hits = new Map<string, number[]>();
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (recent.length >= MAX_PER_WINDOW) {
+    hits.set(userId, recent);
+    return true;
   }
+  recent.push(now);
+  hits.set(userId, recent);
+  return false;
+}
+
+export async function POST(req: Request) {
+  const userId = await getUserId();
+  if (!userId) return fail("unauthenticated", "Please sign in to use the studio.", 401);
 
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await req.formData();
   } catch {
-    return failure(
-      "invalid_request",
-      400,
-      "Expected a multipart form body with an `image` file and a `preset` id.",
-    );
+    return fail("invalid_request", "Send the photo and style as multipart form data.", 400);
   }
 
-  const image = form.get("image");
-  const rawPresetId = form.get("preset");
+  const photo = form.get("photo");
+  const presetId = form.get("presetId");
 
-  if (!(image instanceof File) || image.size === 0) {
-    return failure("invalid_request", 400, "Attach the source image as `image`.");
-  }
+  if (typeof presetId !== "string") return fail("invalid_request", "Choose a style.", 400);
+  const preset = findStudioPreset(presetId);
+  if (!preset) return fail("invalid_request", "That style isn't available.", 400);
 
-  const rejection = rejectSourceImage(image);
-  if (rejection === "type") {
-    return failure("invalid_request", 400, `Source images must be ${ACCEPTED_SOURCE_IMAGE_LABEL}.`);
-  }
+  if (!(photo instanceof File)) return fail("invalid_request", "Upload a photo.", 400);
+
+  const rejection = rejectSourceImage(photo);
+  if (rejection === "type") return fail("invalid_request", "Use a JPG, PNG or WebP image.", 400);
   if (rejection === "size") {
-    return failure("invalid_request", 400, `Source images must be ${MAX_SOURCE_IMAGE_LABEL} or smaller.`);
+    return fail("invalid_request", `Image must be under ${MAX_SOURCE_IMAGE_LABEL}.`, 400);
   }
 
-  const preset = findStudioPreset(typeof rawPresetId === "string" ? rawPresetId : "");
-  if (!preset) {
-    return failure("invalid_request", 400, "Choose one of the curated styles.");
+  if (isRateLimited(userId)) {
+    return fail("engine_failed", "You're going a bit fast. Try again in a minute.", 429);
   }
 
-  const engine = getRenderEngineConfig();
-  if (!engine) {
-    return failure(
-      "engine_not_connected",
-      501,
-      "No style engine is connected yet. Set RENDER_ENGINE_URL and RENDER_ENGINE_API_KEY to enable renders.",
-    );
-  }
+  try {
+    const bytes = new Uint8Array(await photo.arrayBuffer());
+    const { imageUrl } = await renderPreset(preset.id, bytes, photo.type);
 
-  const outcome = await requestStyledImage({ engine, image, presetId: preset.id });
-  if (!outcome.ok) {
-    return failure("engine_failed", 502, outcome.reason);
-  }
-
-  return NextResponse.json<StudioGeneration>(
-    {
+    const generation: StudioGeneration = {
       id: crypto.randomUUID(),
       presetId: preset.id,
       presetLabel: preset.label,
-      imageUrl: outcome.imageUrl,
+      imageUrl,
       createdAt: new Date().toISOString(),
-    },
-    { status: 200 },
-  );
+    };
+    return NextResponse.json(generation);
+  } catch (err) {
+    if (err instanceof EngineNotConnectedError) {
+      return fail("engine_not_connected", "The studio engine isn't connected yet.", 503);
+    }
+    if (err instanceof EngineFailedError && err.message === "no_image") {
+      return fail(
+        "engine_failed",
+        "The engine couldn't restyle this photo. Try a different image or style.",
+        422,
+      );
+    }
+    console.error("[api/generate]", err);
+    return fail("engine_failed", "Something went wrong while rendering. Please try again.", 502);
+  }
 }

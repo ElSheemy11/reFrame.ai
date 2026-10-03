@@ -105,8 +105,8 @@ export function StudioWorkspace({ engineConnected }: { engineConnected: boolean 
     setRenderError(null);
 
     const body = new FormData();
-    body.append("image", source.file);
-    body.append("preset", presetId);
+    body.append("photo", source.file);
+    body.append("presetId", presetId);
 
     try {
       const response = await fetch(GENERATE_ENDPOINT, { method: "POST", body });
@@ -164,11 +164,7 @@ export function StudioWorkspace({ engineConnected }: { engineConnected: boolean 
               <span className="font-medium text-foreground">Render restyle</span> stays disabled.
               Set{" "}
               <code className="rounded bg-secondary/60 px-1 py-0.5 text-foreground">
-                RENDER_ENGINE_URL
-              </code>{" "}
-              and{" "}
-              <code className="rounded bg-secondary/60 px-1 py-0.5 text-foreground">
-                RENDER_ENGINE_API_KEY
+                GOOGLE_GENERATIVE_AI_API_KEY
               </code>{" "}
               to switch rendering on.
             </p>

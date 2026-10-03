@@ -2,7 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 
 import { StudioWorkspace } from "@/components/studio/studio-workspace";
-import { isRenderEngineConnected } from "@/lib/studio-engine";
 
 export const metadata: Metadata = {
   title: "Studio",
@@ -15,9 +14,9 @@ async function StudioPage() {
   // so the server component itself also requires a session.
   await auth.protect();
 
-  // Read on the server so the engine credentials never reach the client bundle:
-  // the workspace only learns whether an engine exists, never how to reach it.
-  const engineConnected = isRenderEngineConnected();
+  // Read on the server so the Gemini credential never reaches the client bundle:
+  // the workspace only learns whether the engine is connected, never the key.
+  const engineConnected = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 
   return (
     <main className="min-h-screen bg-background p-3 sm:p-4 lg:p-5">

@@ -170,7 +170,7 @@ export function SiteHeader() {
           "transition-[max-width,height,background-color,box-shadow] duration-500",
           EASE,
           scrolled
-            ? "h-12 max-w-4xl bg-white/55 dark:bg-white/[0.09]"
+            ? "h-12 max-w-4xl bg-white/55 dark:bg-white/9"
             : "h-14 max-w-6xl",
         )}
       >

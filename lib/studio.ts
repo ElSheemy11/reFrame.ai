@@ -6,11 +6,11 @@ import { ACCEPTED_SOURCE_IMAGE_MIME_TYPES } from "@/lib/constants";
  *
  * Everything in this module is plain data or a pure helper, so it is safe to
  * import from both the server route and the "use client" workspace. Server-only
- * concerns (engine credentials, the upstream call) live in `lib/studio-engine`.
+ * concerns (engine credentials, the upstream call) live in `lib/gemini`.
  */
 
 /** Largest source image the studio accepts, in bytes. */
-export const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_SOURCE_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** `MAX_SOURCE_IMAGE_BYTES` in the form shown to people. */
 export const MAX_SOURCE_IMAGE_LABEL = formatBytes(MAX_SOURCE_IMAGE_BYTES);
