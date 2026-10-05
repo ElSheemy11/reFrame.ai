@@ -3,11 +3,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Testimonial avatars (lib/constants.ts) are served straight from Unsplash.
+    // Testimonial avatars (lib/constants.ts) are served straight from Unsplash,
+    // and rendered results are served from ImageKit (lib/imagekit-upload.ts).
     remotePatterns: [
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
         pathname: "/**",
       },
     ],

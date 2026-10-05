@@ -31,10 +31,14 @@ const glassSurface =
 const glassAccent = "border border-primary/40 bg-primary/25";
 
 // Split every nav href into its path and hash, e.g. "/#pricing" -> { path: "/", hash: "pricing" }
-const NAV_LINKS = CENTER_NAV_LINKS.map((link) => {
-  const [rawPath, hash = ""] = link.href.split("#");
-  return { ...link, path: rawPath || "/", hash };
-});
+const NAV_LINKS = [
+  ...CENTER_NAV_LINKS.map((link) => {
+    const [rawPath, hash = ""] = link.href.split("#");
+    return { ...link, path: rawPath || "/", hash };
+  }),
+  // Studio is a route link, not a home-page section: highlighted by pathname.
+  { label: "Studio", href: "/studio", path: "/studio", hash: "" },
+];
 
 // Ids of the on-page sections that the nav links point to
 const SECTION_IDS = NAV_LINKS.filter((l) => l.hash).map((l) => l.hash);
@@ -55,8 +59,10 @@ export function SiteHeader() {
   const navRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   // After a nav click, pause the scroll spy so the pill doesn't flicker through
-  // every section the smooth scroll passes on the way.
-  const spyLockUntil = useRef(0);
+  // every section the smooth scroll passes on the way. Resumed by a timer so no
+  // impure clock call is needed inside render-scoped code.
+  const spyPaused = useRef(false);
+  const spyResumeTimer = useRef<number | null>(null);
 
   // Which nav item is "current":
   // - on the home page: the section in view, or the Home link when above all sections
@@ -80,18 +86,17 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll spy: track which section is currently in view (home page only)
+  // Scroll spy: track which section is currently in view (home page only).
+  // On other routes it never runs, and `activeSection` is ignored there
+  // (only `activeIndex` is read), so no state reset happens in this effect.
   useEffect(() => {
-    if (pathname !== "/") {
-      setActiveSection(null);
-      return;
-    }
+    if (pathname !== "/") return;
 
     let frame = 0;
 
     const update = () => {
       frame = 0;
-      if (Date.now() < spyLockUntil.current) return;
+      if (spyPaused.current) return;
 
       const line = window.innerHeight * SPY_LINE;
       const atBottom =
@@ -126,10 +131,13 @@ export function SiteHeader() {
     };
   }, [pathname]);
 
-  // Close the mobile menu on navigation
+  // Close the mobile menu when the route changes via browser back/forward.
+  // Header links close it themselves on click; this covers history navigation.
   useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+    const close = () => setMobileOpen(false);
+    window.addEventListener("popstate", close);
+    return () => window.removeEventListener("popstate", close);
+  }, []);
 
   // Close on Escape
   useEffect(() => {
@@ -154,7 +162,14 @@ export function SiteHeader() {
     if (pathname !== "/") return;
     const link = NAV_LINKS[index];
     if (link.path !== "/") return;
-    spyLockUntil.current = Date.now() + 800;
+    spyPaused.current = true;
+    if (spyResumeTimer.current !== null) {
+      window.clearTimeout(spyResumeTimer.current);
+    }
+    spyResumeTimer.current = window.setTimeout(() => {
+      spyPaused.current = false;
+      spyResumeTimer.current = null;
+    }, 800);
     setActiveSection(link.hash || null);
   };
 
@@ -176,6 +191,7 @@ export function SiteHeader() {
       >
         <Link
           href="/"
+          onClick={() => setMobileOpen(false)}
           className="text-foreground pl-1 text-base font-semibold tracking-tight transition-opacity duration-300 hover:opacity-70 sm:pl-2"
         >
           reFrame.ai
@@ -224,12 +240,14 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           <ModeToggle />
 
-          {/* Auth buttons: desktop only (mobile versions live in the menu) */}
+          {/* Auth: one user control in the bar at every size — the "Sign in"
+              button shows when signed out (the account menu when signed in);
+              "Sign up" stays desktop-only and lives in the mobile menu too. */}
           <Show when="signed-out">
             <SignInButton mode="modal" fallbackRedirectUrl={"/studio"}>
               <Button
                 className={cn(
-                  "text-foreground hidden rounded-xl px-4 py-1.5 text-sm font-medium md:inline-flex",
+                  "text-foreground h-10 rounded-xl px-3 text-sm font-medium md:h-9 md:px-4",
                   "transition-all duration-300 hover:bg-white/60 active:scale-95 dark:hover:bg-white/20",
                   glass,
                 )}

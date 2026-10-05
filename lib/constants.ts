@@ -39,17 +39,19 @@ export const SHOWCASE_BG_VIDEO_SRC =
 
 export const CENTER_NAV_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Styles", href: "#styles", chevron: true },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  // Section links are absolute so they always navigate to the home page and
+  // never append a hash to the current route (e.g. /studio#styles).
+  { label: "Styles", href: "/#styles", chevron: true },
+  { label: "How it works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "FAQ", href: "/#faq" },
 ] as const;
 
 export const FOOTER_QUICK_LINKS = [
-  { label: "Pricing", href: "#pricing" },
-  { label: "Styles", href: "#styles" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Styles", href: "/#styles" },
   { label: "Privacy", href: "/privacy" },
-  { label: "How it works", href: "#how-it-works" },
+  { label: "How it works", href: "/#how-it-works" },
   { label: "Studio", href: "/studio" },
 ] as const;
 
@@ -164,7 +166,7 @@ export const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   {
     step: "Step 3",
     title: "Generate the transformation",
-    body: "Luma restyles the image while protecting composition, identity cues, and the small details that matter.",
+    body: "reFrame.ai restyles the image while protecting composition, identity cues, and the small details that matter.",
     icon: SparklesIcon,
     featured: true,
   },

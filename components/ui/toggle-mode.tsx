@@ -7,11 +7,18 @@ import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 
+/** Never subscribes: `useSyncExternalStore` is only used for the SSR-safe mounted check. */
+const emptySubscribe = () => () => {}
+
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => setMounted(true), [])
+  // `true` on the client, `false` during SSR — avoids a setState-in-effect to
+  // guard against hydration mismatches.
+  const mounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  )
 
   const isDark = mounted && resolvedTheme === "dark"
 

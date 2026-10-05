@@ -9,22 +9,34 @@ import {
   type StudioGenerateError,
   type StudioGenerateErrorCode,
 } from "@/lib/studio";
-import { EngineFailedError, EngineNotConnectedError, renderPreset } from "@/lib/gemini";
+import { EngineFailedError, EngineNotConnectedError, renderPreset } from "@/lib/cloudflare";
+import { getQuotaSnapshot, type GenerationQuotaSnapshot } from "@/lib/generation-quota";
+import {
+  createPendingGeneration,
+  markGenerationDone,
+  markGenerationFailed,
+  type GenerationRecord,
+} from "@/lib/generations-repo";
+import { DEFAULT_WORKERS_AI_IMAGE_MODEL } from "@/lib/workers-ai-models";
+import { uploadGeneratedImage } from "@/lib/imagekit-upload";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/**
+ * Extra sentences appended to every preset prompt so the engine keeps the source
+ * photo's subject and framing instead of inventing new content.
+ */
+const PROMPT_GUARDRAILS = [
+  "Do not add extra people.",
+  "Do not add extra limbs.",
+  "Do not add extra subjects or objects.",
+  "Do not change the overall camera angle, framing or perspective.",
+] as const;
+
 function fail(code: StudioGenerateErrorCode, message: string, status: number) {
   const body: StudioGenerateError = { error: { code, message } };
   return NextResponse.json(body, { status });
-}
-
-// Auth: the project's real auth is Clerk. `proxy.ts` keeps signed-out browsers
-// out of /studio, but an API route can be called directly, so this enforces its
-// own session check and fails closed when there is no user.
-async function getUserId(): Promise<string | null> {
-  const { userId } = await auth();
-  return userId ?? null;
 }
 
 // In-memory limiter: per server instance only.
@@ -45,7 +57,10 @@ function isRateLimited(userId: string): boolean {
 }
 
 export async function POST(req: Request) {
-  const userId = await getUserId();
+  // Clerk session check, enforced here because the API can be called directly.
+  // Signed-out requests get a JSON 401 (never a redirect); `proxy.ts` does not
+  // protect `/api/*`, so this is the only gate.
+  const { userId } = await auth();
   if (!userId) return fail("unauthenticated", "Please sign in to use the studio.", 401);
 
   let form: FormData;
@@ -74,29 +89,114 @@ export async function POST(req: Request) {
     return fail("engine_failed", "You're going a bit fast. Try again in a minute.", 429);
   }
 
-  try {
-    const bytes = new Uint8Array(await photo.arrayBuffer());
-    const { imageUrl } = await renderPreset(preset.id, bytes, photo.type);
+  const quota = await getQuotaSnapshot(userId);
+  if (quota.remaining <= 0) {
+    const body: StudioGenerateError & { quota: GenerationQuotaSnapshot } = {
+      error: {
+        code: "quota_exceeded",
+        message: "You've used all your renders this month. Try again after your quota resets.",
+      },
+      quota,
+    };
+    return NextResponse.json(body, { status: 429 });
+  }
 
-    const generation: StudioGeneration = {
-      id: crypto.randomUUID(),
+  let pending: GenerationRecord;
+  try {
+    pending = await createPendingGeneration({
+      userId,
       presetId: preset.id,
       presetLabel: preset.label,
-      imageUrl,
-      createdAt: new Date().toISOString(),
+      model: DEFAULT_WORKERS_AI_IMAGE_MODEL,
+    });
+  } catch (err) {
+    console.error("[api/generate] could not queue generation", err);
+    return fail("engine_failed", "Something went wrong while rendering. Please try again.", 502);
+  }
+
+  const startedAt = Date.now();
+  try {
+    const bytes = new Uint8Array(await photo.arrayBuffer());
+    const { imageUrl: renderedDataUrl } = await renderPreset(
+      preset.id,
+      bytes,
+      photo.type,
+      PROMPT_GUARDRAILS,
+    );
+
+    // Upload to ImageKit so the render joins the user's saved history. If the
+    // upload fails we keep the session-only data URL and store no file id, so
+    // the result is never lost.
+    let storedImageUrl: string | null = null;
+    let imageKitFileId: string | null = null;
+    let responseImageUrl = renderedDataUrl;
+    try {
+      const uploaded = await uploadGeneratedImage({
+        userId,
+        generationId: pending.id,
+        dataUrl: renderedDataUrl,
+      });
+      storedImageUrl = uploaded.url;
+      imageKitFileId = uploaded.fileId;
+      responseImageUrl = uploaded.url;
+    } catch (uploadErr) {
+      console.error("[api/generate] imagekit upload failed", uploadErr);
+    }
+
+    const done = await markGenerationDone(userId, pending.id, {
+      imageUrl: storedImageUrl,
+      imageKitFileId,
+      durationMs: Date.now() - startedAt,
+    });
+
+    const generation: StudioGeneration = {
+      id: pending.id,
+      presetId: preset.id,
+      presetLabel: preset.label,
+      imageUrl: responseImageUrl,
+      createdAt: (done?.createdAt ?? pending.createdAt).toISOString(),
+      quota: await getQuotaSnapshot(userId),
     };
     return NextResponse.json(generation);
   } catch (err) {
+    try {
+      await markGenerationFailed(userId, pending.id, Date.now() - startedAt);
+    } catch (markErr) {
+      console.error("[api/generate] could not mark generation failed", markErr);
+    }
+
     if (err instanceof EngineNotConnectedError) {
       return fail("engine_not_connected", "The studio engine isn't connected yet.", 503);
     }
-    if (err instanceof EngineFailedError && err.message === "no_image") {
-      return fail(
-        "engine_failed",
-        "The engine couldn't restyle this photo. Try a different image or style.",
-        422,
-      );
+    if (err instanceof EngineFailedError) {
+      switch (err.message) {
+        case "rate_limited":
+          return fail(
+            "engine_failed",
+            "The studio has reached its daily limit. Please try again tomorrow.",
+            429,
+          );
+        case "bad_image":
+          return fail(
+            "invalid_request",
+            "We couldn't read that image. Try a different JPG or PNG.",
+            400,
+          );
+        case "no_model_access":
+          return fail(
+            "engine_not_connected",
+            "The studio engine isn't available right now.",
+            503,
+          );
+        case "no_image":
+          return fail(
+            "engine_failed",
+            "The engine couldn't restyle this photo. Try a different image or style.",
+            422,
+          );
+      }
     }
+
     console.error("[api/generate]", err);
     return fail("engine_failed", "Something went wrong while rendering. Please try again.", 502);
   }

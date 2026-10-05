@@ -67,12 +67,12 @@ export function HomeHero() {
               </Link>
             </Show>
 
-            <a
-              href="#how-it-works"
+            <Link
+              href="/#how-it-works"
               className={buttonVariants({ variant: "ghost", className: "hero-pill home-btn-hero-ghost" })}
             >
               Watch 2min demo
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -82,7 +82,7 @@ export function HomeHero() {
               <div className="hero-demo-glass-inner home-demo-inner">
                 <Image
                   src="/Hero-Section.png"
-                  alt="Luma Studio workspace showing upload, curated styles, and a before-and-after preview"
+                  alt="reFrame.ai workspace showing upload, curated styles, and a before-and-after preview"
                   width={3290}
                   height={1872}
                   className="h-auto w-full"

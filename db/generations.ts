@@ -13,7 +13,7 @@ export async function countGenerationsSince(clerkUserId: string, since: Date) {
     .from(generations)
     .where(
       and(
-        eq(generations.clerkUserId, clerkUserId),
+        eq(generations.userId, clerkUserId),
         gte(generations.createdAt, since)
       )
     );
@@ -26,7 +26,7 @@ export async function listUserGenerations(clerkUserId: string, limit: number, of
     const rows = await db
         .select()
         .from(generations)
-        .where(eq(generations.clerkUserId, clerkUserId))
+        .where(eq(generations.userId, clerkUserId))
         .orderBy(desc(generations.createdAt))
         .limit(limit)
         .offset(offset)

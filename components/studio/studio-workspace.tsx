@@ -164,7 +164,11 @@ export function StudioWorkspace({ engineConnected }: { engineConnected: boolean 
               <span className="font-medium text-foreground">Render restyle</span> stays disabled.
               Set{" "}
               <code className="rounded bg-secondary/60 px-1 py-0.5 text-foreground">
-                GOOGLE_GENERATIVE_AI_API_KEY
+                CLOUDFLARE_ACCOUNT_ID
+              </code>{" "}
+              and{" "}
+              <code className="rounded bg-secondary/60 px-1 py-0.5 text-foreground">
+                CLOUDFLARE_API_TOKEN
               </code>{" "}
               to switch rendering on.
             </p>

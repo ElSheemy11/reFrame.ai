@@ -1,4 +1,6 @@
 import { ACCEPTED_SOURCE_IMAGE_MIME_TYPES } from "@/lib/constants";
+import { stylePresets } from "@/lib/style-presets";
+import type { GenerationQuotaSnapshot } from "@/lib/generation-quota";
 
 /**
  * Shared contract for the studio workspace (`/studio`) and the route that will
@@ -43,49 +45,12 @@ export type StudioPreset = {
 };
 
 /**
- * The curated looks offered in the studio. Each one has a matching
- * `<id>-example.png` in `public/`, so adding a look is an image plus an entry
- * here — the route validates against this list, so the UI and the API can never
- * disagree about what is selectable.
+ * The curated looks offered in the studio, sourced from `lib/style-presets`
+ * (the single source of truth) so the studio UI and the API can never disagree
+ * about what is selectable. Each one has a matching `<id>-example.png` in
+ * `public/`.
  */
-export const STUDIO_PRESETS: readonly StudioPreset[] = [
-  {
-    id: "storybook-3d",
-    label: "Storybook 3D",
-    blurb: "Painted 3D storybook look with soft light and rounded forms.",
-    thumbnail: "/storybook-example.png",
-  },
-  {
-    id: "anime-cel",
-    label: "Anime Cel",
-    blurb: "Flat cel shading with crisp ink lines and saturated colour.",
-    thumbnail: "/anime-cel-example.png",
-  },
-  {
-    id: "clay-render",
-    label: "Clay Render",
-    blurb: "Matte clay sculpt with soft studio shadows.",
-    thumbnail: "/clay-render-example.png",
-  },
-  {
-    id: "pixart",
-    label: "Pixart",
-    blurb: "Chunky pixel art on a tight retro palette.",
-    thumbnail: "/pixart-example.png",
-  },
-  {
-    id: "voxel-block",
-    label: "Voxel Block",
-    blurb: "Blocky voxel build with toy-like depth.",
-    thumbnail: "/voxel-block-example.png",
-  },
-  {
-    id: "marble-sculpture",
-    label: "Marble Sculpture",
-    blurb: "Polished marble carving under cool studio light.",
-    thumbnail: "/marble-sculpture-example.png",
-  },
-];
+export const STUDIO_PRESETS: readonly StudioPreset[] = stylePresets;
 
 /** Preset selected when the studio first loads. */
 export const DEFAULT_STUDIO_PRESET_ID: StudioPresetId = STUDIO_PRESETS[0].id;
@@ -120,6 +85,8 @@ export type StudioGeneration = {
   imageUrl: string;
   /** ISO timestamp of when the engine finished. */
   createdAt: string;
+  /** Monthly quota after this render, when the server knows it. */
+  quota?: GenerationQuotaSnapshot;
 };
 
 /** Machine-readable failure reasons from `POST /api/generate`. */
@@ -127,7 +94,8 @@ export type StudioGenerateErrorCode =
   | "unauthenticated"
   | "invalid_request"
   | "engine_not_connected"
-  | "engine_failed";
+  | "engine_failed"
+  | "quota_exceeded";
 
 /** Error body returned by `POST /api/generate`. */
 export type StudioGenerateError = {
