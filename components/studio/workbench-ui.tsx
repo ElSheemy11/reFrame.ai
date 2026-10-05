@@ -174,8 +174,8 @@ export function HistoryCard({
   onView: () => void;
 }) {
   return (
-    <div className="studio-panel-inset studio-history-card overflow-hidden rounded-[1.45rem] border">
-      <div className="relative aspect-[1.1] overflow-hidden bg-background/20">
+    <div className="studio-panel-inset studio-history-card min-w-0 rounded-[1.45rem] border">
+      <div className="relative aspect-[1.1] w-full overflow-hidden rounded-t-[1.45rem] bg-background/20">
         <Image
           src={item.resultImageUrl}
           alt={`${item.styleLabel} history preview`}
@@ -186,22 +186,22 @@ export function HistoryCard({
         <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-background via-background/55 to-transparent" />
       </div>
 
-      <div className="flex items-center gap-2 p-3.5">
+      <div className="flex flex-wrap items-center gap-2 p-3">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="studio-pill h-10 flex-1 rounded-full px-3 text-xs"
+          className="studio-pill h-10 min-w-0 flex-1 shrink rounded-full px-3 text-xs"
           onClick={onView}
         >
-          View
+          <span className="truncate">View</span>
         </Button>
 
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="studio-pill h-10 rounded-full px-3 text-xs"
+          className="studio-pill size-10 shrink-0 rounded-full p-0"
           aria-label="Download result"
           onClick={() => {
             void downloadImageFromUrl(item.resultImageUrl, `${item.styleSlug}-result.png`);
@@ -215,7 +215,7 @@ export function HistoryCard({
             type="button"
             variant="ghost"
             size="sm"
-            className="studio-pill h-10 rounded-full px-3 text-xs"
+            className="studio-pill size-10 shrink-0 rounded-full p-0"
             aria-label="Delete result"
             onClick={() => {
               if (window.confirm("Delete this render? This can't be undone.")) {

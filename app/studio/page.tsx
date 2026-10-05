@@ -1,5 +1,5 @@
 import StudioWorkbench from "@/components/studio/workbench";
-import { getQuotaSnapshot } from "@/lib/generation-quota";
+import { getQuotaSnapshot, resolvePlan } from "@/lib/generation-quota";
 import { listGenerations } from "@/lib/generations-repo";
 import { STUDIO_HISTORY_LIMIT } from "@/lib/studio";
 import type { GenerationHistorySummaryItem } from "@/lib/types";
@@ -69,9 +69,12 @@ async function StudioPage() {
   const { userId } = await auth();
   if (!userId) return <SignInPrompt />;
 
+  // Resolve the plan first: both calls need it, and the quota must be built from
+  // the same plan the API route enforces.
+  const plan = await resolvePlan();
   const [rows, initialQuota] = await Promise.all([
     listGenerations(userId, HISTORY_LIMIT),
-    getQuotaSnapshot(userId),
+    getQuotaSnapshot(userId, plan),
   ]);
 
   const initialHistory = rows.filter((row) => row.status === "done" && row.imageUrl).map(toHistoryItem);

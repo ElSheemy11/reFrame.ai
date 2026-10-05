@@ -10,7 +10,7 @@ import {
   type StudioGenerateErrorCode,
 } from "@/lib/studio";
 import { EngineFailedError, EngineNotConnectedError, renderPreset } from "@/lib/cloudflare";
-import { getQuotaSnapshot, type GenerationQuotaSnapshot } from "@/lib/generation-quota";
+import { getQuotaSnapshot, resolvePlan, type GenerationQuotaSnapshot } from "@/lib/generation-quota";
 import {
   createPendingGeneration,
   markGenerationDone,
@@ -89,7 +89,10 @@ export async function POST(req: Request) {
     return fail("engine_failed", "You're going a bit fast. Try again in a minute.", 429);
   }
 
-  const quota = await getQuotaSnapshot(userId);
+  // The plan drives the limit, and the same resolved value is reused for every
+  // snapshot in this request so the gate and the reported numbers agree.
+  const plan = await resolvePlan();
+  const quota = await getQuotaSnapshot(userId, plan);
   if (quota.remaining <= 0) {
     const body: StudioGenerateError & { quota: GenerationQuotaSnapshot } = {
       error: {
@@ -155,7 +158,7 @@ export async function POST(req: Request) {
       presetLabel: preset.label,
       imageUrl: responseImageUrl,
       createdAt: (done?.createdAt ?? pending.createdAt).toISOString(),
-      quota: await getQuotaSnapshot(userId),
+      quota: await getQuotaSnapshot(userId, plan),
     };
     return NextResponse.json(generation);
   } catch (err) {

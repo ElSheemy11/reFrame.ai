@@ -101,7 +101,7 @@ export function StudioPreviewPanel() {
         </div>
 
         {history.length ? (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3 sm:gap-4">
             {history.map((item) => (
               <HistoryCard
                 key={item.id}
